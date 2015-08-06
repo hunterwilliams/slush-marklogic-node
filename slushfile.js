@@ -140,7 +140,7 @@ function runRoxy(config) {
 }
 
 // Make some changes to Roxy's deploy/build.properties file for the out-of-the-box application
-function configRoxy() {
+function configRoxy(appPort,xccPort) {
   console.log('Configuring Roxy');
 
   try {
@@ -149,6 +149,10 @@ function configRoxy() {
 
     // set the authentication-method property to digestbasic
     properties = properties.replace(/^authentication\-method=digest/m, 'authentication-method=digestbasic');
+
+    //set the ports
+    properties = properties.replace(/^app\-port=8040/m, 'app-port=' + appPort);
+    properties = properties.replace(/^xcc\-port=8041/m, 'xcc-port=' + xccPort);
 
     fs.writeFileSync('deploy/build.properties', properties);
   } catch (e) {
@@ -176,7 +180,7 @@ function configRoxy() {
 
 }
 
-gulp.task('default', ['init', 'configEsri'], function(done) {
+gulp.task('default', ['init', 'configGulp', 'configEsri'], function(done) {
   gulp.src(['./bower.json', './package.json'])
    .pipe(install());
 });
@@ -208,6 +212,24 @@ gulp.task('configEsri', ['init'], function(done) {
   done();
 });
 
+gulp.task('configGulp', ['init'], function(done) {
+
+  try {
+
+    var config = fs.readFileSync('gulp.config.js', { encoding: 'utf8' });
+
+    //set the ports
+    config = config.replace(/\bdefaultPort: '9070'/m, "defaultPort: '" + settings.nodePort + "'");
+    config = config.replace(/\bport: '8040'/m, "port: '" + settings.appPort + "'");
+
+    fs.writeFileSync('gulp.config.js', config);
+  } catch (e) {
+    console.log('failed to update gulp.config.js: ' + e.message);
+  }
+
+  done();
+});
+
 gulp.task('checkForUpdates', function(done) {
   checkLatestVersion().then(function() {
     printVersionWarning();
@@ -218,6 +240,9 @@ gulp.task('checkForUpdates', function(done) {
 gulp.task('init', ['checkForUpdates'], function (done) {
   inquirer.prompt([
     {type: 'input', name: 'name', message: 'Name for the app?', default: getNameProposal()},
+    {type: 'input', name: 'nodePort', message: 'Node app port?', default: 9070},
+    {type: 'input', name: 'appPort', message: 'MarkLogic App/Rest port?', default: 8040},
+    {type: 'input', name: 'xccPort', message: 'XCC port?', default:8041},
     {type: 'list', name: 'mlVersion', message: 'MarkLogic version?', choices: ['8','7', '6', '5'], default: 0},
     {type: 'list', name: 'appType', message: 'Roxy App Type?', choices: ['rest', 'mvc', 'hybrid'], default: 0},
     {type: 'list', name: 'branch', message: 'Roxy Branch?', choices: ['master', 'dev'], default: 0},
@@ -226,6 +251,8 @@ gulp.task('init', ['checkForUpdates'], function (done) {
   function (answers) {
     answers.nameDashed = _.slugify(answers.name);
     answers.modulename = _.camelize(answers.nameDashed);
+    settings.nodePort = answers.nodePort;
+    settings.appPort = answers.appPort;
     settings.includeEsri = answers.includeEsri;
 
     getRoxyScript(answers.nameDashed, answers.mlVersion, answers.appType, answers.branch)
@@ -246,7 +273,7 @@ gulp.task('init', ['checkForUpdates'], function (done) {
 
         process.chdir('./' + answers.nameDashed);
 
-        configRoxy();
+        configRoxy(answers.appPort, answers.xccPort);
 
         gulp.src(files)
           .pipe(rename(function (file) {
