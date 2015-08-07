@@ -4,8 +4,8 @@
   angular.module('sample.user')
     .factory('userService', UserService);
 
-  UserService.$inject = ['$http', '$rootScope'];
-  function UserService($http, $rootScope) {
+  UserService.$inject = ['$http', '$rootScope','loginService'];
+  function UserService($http, $rootScope, loginService) {
     var _currentUser = null;
 
     function currentUser() {
@@ -49,16 +49,11 @@
     }
 
     function login(username, password) {
-      return $http.get('/api/user/login', {
-        params: {
-          'username': username,
-          'password': password
-        }
-      }).then(updateUser);
+      return loginService.login(username, password).then(updateUser);
     }
 
     function logout() {
-      return $http.get('/api/user/logout').then(function(response) {
+      return loginService.logout().then(function(response) {
         _currentUser = null;
         return _currentUser;
       });

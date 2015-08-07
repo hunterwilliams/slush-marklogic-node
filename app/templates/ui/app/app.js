@@ -3,6 +3,7 @@
 
   angular.module('sample', [
     'ml.common',
+    'ml.login',
     'ml.search',
     'ml.search.tpls',
     'ml.utils',
